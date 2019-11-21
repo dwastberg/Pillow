@@ -30,10 +30,6 @@ from math import ceil, log
 from . import BmpImagePlugin, Image, ImageFile, PngImagePlugin
 from ._binary import i8, i16le as i16, i32le as i32
 
-# __version__ is deprecated and will be removed in a future version. Use
-# PIL.__version__ instead.
-__version__ = "0.1"
-
 #
 # --------------------------------------------------------------------
 
@@ -86,7 +82,7 @@ def _accept(prefix):
     return prefix[:4] == _MAGIC
 
 
-class IcoFile(object):
+class IcoFile:
     def __init__(self, buf):
         """
         Parse image from file-like object containing ico file data
@@ -180,6 +176,7 @@ class IcoFile(object):
         else:
             # XOR + AND mask bmp frame
             im = BmpImagePlugin.DibImageFile(self.buf)
+            Image._decompression_bomb_check(im.size)
 
             # change tile dimension to only encompass XOR image
             im._size = (im.size[0], int(im.size[1] / 2))
@@ -262,6 +259,9 @@ class IcoImageFile(ImageFile.ImageFile):
     in the icon file.
 
     Handles classic, XP and Vista icon formats.
+
+    When saving, PNG compression is used. Support for this was only added in
+    Windows Vista.
 
     This plugin is a refactored version of Win32IconImagePlugin by Bryan Davis
     <casadebender@gmail.com>.

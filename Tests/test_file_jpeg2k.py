@@ -42,9 +42,9 @@ class TestFileJpeg2k(PillowTestCase):
         self.assertEqual(im.get_format_mimetype(), "image/jp2")
 
     def test_jpf(self):
-        im = Image.open("Tests/images/balloon.jpf")
-        self.assertEqual(im.format, "JPEG2000")
-        self.assertEqual(im.get_format_mimetype(), "image/jpx")
+        with Image.open("Tests/images/balloon.jpf") as im:
+            self.assertEqual(im.format, "JPEG2000")
+            self.assertEqual(im.get_format_mimetype(), "image/jpx")
 
     def test_invalid_file(self):
         invalid_file = "Tests/images/flower.jpg"
@@ -90,6 +90,12 @@ class TestFileJpeg2k(PillowTestCase):
             test_card, tile_size=(128, 128), tile_offset=(0, 0), offset=(32, 32)
         )
         self.assert_image_equal(im, test_card)
+
+    def test_tiled_offset_too_small(self):
+        with self.assertRaises(ValueError):
+            self.roundtrip(
+                test_card, tile_size=(128, 128), tile_offset=(0, 0), offset=(128, 32)
+            )
 
     def test_irreversible_rt(self):
         im = self.roundtrip(test_card, irreversible=True, quality_layers=[20])

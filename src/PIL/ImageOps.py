@@ -21,7 +21,6 @@ import functools
 import operator
 
 from . import Image
-from ._util import isStringType
 
 #
 # helpers
@@ -39,7 +38,7 @@ def _border(border):
 
 
 def _color(color, mode):
-    if isStringType(color):
+    if isinstance(color, str):
         from . import ImageColor
 
         color = ImageColor.getcolor(color, mode)
@@ -55,7 +54,7 @@ def _lut(image, lut):
             lut = lut + lut + lut
         return image.point(lut)
     else:
-        raise IOError("not supported for this image mode")
+        raise OSError("not supported for this image mode")
 
 
 #
@@ -426,7 +425,11 @@ def fit(image, size, method=Image.NEAREST, bleed=0.0, centering=(0.5, 0.5)):
     output_ratio = float(size[0]) / size[1]
 
     # figure out if the sides or top/bottom will be cropped off
-    if live_size_ratio >= output_ratio:
+    if live_size_ratio == output_ratio:
+        # live_size is already the needed ratio
+        crop_width = live_size[0]
+        crop_height = live_size[1]
+    elif live_size_ratio >= output_ratio:
         # live_size is wider than what's needed, crop the sides
         crop_width = output_ratio * live_size[1]
         crop_height = live_size[1]

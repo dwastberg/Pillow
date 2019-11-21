@@ -25,14 +25,11 @@
 #
 
 import itertools
+import os
+import subprocess
 
 from . import Image, ImageChops, ImageFile, ImagePalette, ImageSequence
 from ._binary import i8, i16le as i16, o8, o16le as o16
-
-# __version__ is deprecated and will be removed in a future version. Use
-# PIL.__version__ instead.
-__version__ = "0.9"
-
 
 # --------------------------------------------------------------------
 # Identify/read GIF files
@@ -265,6 +262,7 @@ class GifImageFile(ImageFile.ImageFile):
                 self.dispose = None
             elif self.disposal_method == 2:
                 # replace with background colour
+                Image._decompression_bomb_check(self.size)
                 self.dispose = Image.core.fill("P", self.size, self.info["background"])
             else:
                 # replace with previous contents
@@ -489,6 +487,11 @@ def _write_multiple_frames(im, fp, palette):
                 offset = frame_data["bbox"][:2]
             _write_frame_data(fp, im_frame, offset, frame_data["encoderinfo"])
         return True
+    elif "duration" in im.encoderinfo and isinstance(
+        im.encoderinfo["duration"], (list, tuple)
+    ):
+        # Since multiple frames will not be written, add together the frame durations
+        im.encoderinfo["duration"] = sum(im.encoderinfo["duration"])
 
 
 def _save_all(im, fp, filename):
@@ -611,37 +614,35 @@ def _save_netpbm(im, fp, filename):
     # If you need real GIF compression and/or RGB quantization, you
     # can use the external NETPBM/PBMPLUS utilities.  See comments
     # below for information on how to enable this.
-
-    import os
-    from subprocess import Popen, check_call, PIPE, CalledProcessError
-
     tempfile = im._dump()
 
     with open(filename, "wb") as f:
         if im.mode != "RGB":
-            with open(os.devnull, "wb") as devnull:
-                check_call(["ppmtogif", tempfile], stdout=f, stderr=devnull)
+            subprocess.check_call(
+                ["ppmtogif", tempfile], stdout=f, stderr=subprocess.DEVNULL
+            )
         else:
             # Pipe ppmquant output into ppmtogif
             # "ppmquant 256 %s | ppmtogif > %s" % (tempfile, filename)
             quant_cmd = ["ppmquant", "256", tempfile]
             togif_cmd = ["ppmtogif"]
-            with open(os.devnull, "wb") as devnull:
-                quant_proc = Popen(quant_cmd, stdout=PIPE, stderr=devnull)
-                togif_proc = Popen(
-                    togif_cmd, stdin=quant_proc.stdout, stdout=f, stderr=devnull
-                )
+            quant_proc = subprocess.Popen(
+                quant_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+            )
+            togif_proc = subprocess.Popen(
+                togif_cmd, stdin=quant_proc.stdout, stdout=f, stderr=subprocess.DEVNULL
+            )
 
             # Allow ppmquant to receive SIGPIPE if ppmtogif exits
             quant_proc.stdout.close()
 
             retcode = quant_proc.wait()
             if retcode:
-                raise CalledProcessError(retcode, quant_cmd)
+                raise subprocess.CalledProcessError(retcode, quant_cmd)
 
             retcode = togif_proc.wait()
             if retcode:
-                raise CalledProcessError(retcode, togif_cmd)
+                raise subprocess.CalledProcessError(retcode, togif_cmd)
 
     try:
         os.unlink(tempfile)
@@ -847,7 +848,7 @@ def getdata(im, offset=(0, 0), **params):
 
     """
 
-    class Collector(object):
+    class Collector:
         data = []
 
         def write(self, data):

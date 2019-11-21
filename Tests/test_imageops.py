@@ -11,7 +11,7 @@ except ImportError:
 
 
 class TestImageOps(PillowTestCase):
-    class Deformer(object):
+    class Deformer:
         def getmesh(self, im):
             x, y = im.size
             return [((0, 0, x, y), (0, 0, x, 0, x, y, y, 0))]
@@ -80,6 +80,16 @@ class TestImageOps(PillowTestCase):
 
         newimg = ImageOps.fit(hopper("RGB").resize((100, 1)), (35, 35))
         self.assertEqual(newimg.size, (35, 35))
+
+    def test_fit_same_ratio(self):
+        # The ratio for this image is 1000.0 / 755 = 1.3245033112582782
+        # If the ratios are not acknowledged to be the same,
+        # and Pillow attempts to adjust the width to
+        # 1.3245033112582782 * 755 = 1000.0000000000001
+        # then centering this greater width causes a negative x offset when cropping
+        with Image.new("RGB", (1000, 755)) as im:
+            new_im = ImageOps.fit(im, (1000, 755))
+            self.assertEqual(new_im.size, (1000, 755))
 
     def test_pad(self):
         # Same ratio
